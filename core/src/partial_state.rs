@@ -15,9 +15,9 @@ pub struct PartialState {
 }
 
 impl PartialState {
-    pub fn new(map_size: Size2, player_id: PlayerId) -> PartialState {
+    pub fn new(db: &Db, map_size: Size2, player_id: PlayerId) -> PartialState {
         PartialState {
-            state: InternalState::new(map_size),
+            state: InternalState::new(db, map_size),
             fow: Fow::new(map_size, player_id),
         }
     }

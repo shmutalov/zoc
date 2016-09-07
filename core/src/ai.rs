@@ -24,10 +24,10 @@ pub struct Ai {
 }
 
 impl Ai {
-    pub fn new(id: PlayerId, map_size: Size2) -> Ai {
+    pub fn new(db: &Db, id: PlayerId, map_size: Size2) -> Ai {
         Ai {
             id: id,
-            state: PartialState::new(map_size, id),
+            state: PartialState::new(db, map_size, id),
             pathfinder: Pathfinder::new(map_size),
         }
     }

@@ -242,13 +242,13 @@ struct PlayerInfoManager {
 }
 
 impl PlayerInfoManager {
-    fn new(context: &Context, map_size: Size2, options: &core::Options) -> PlayerInfoManager {
+    fn new(db: &Db, context: &Context, map_size: Size2, options: &core::Options) -> PlayerInfoManager {
         let mut m = HashMap::new();
         let mut camera = Camera::new(context.win_size);
         camera.set_max_pos(get_max_camera_pos(map_size));
         camera.set_pos(get_initial_camera_pos(map_size));
         m.insert(PlayerId{id: 0}, PlayerInfo {
-            game_state: PartialState::new(map_size, PlayerId{id: 0}),
+            game_state: PartialState::new(db, map_size, PlayerId{id: 0}),
             pathfinder: Pathfinder::new(map_size),
             scene: Scene::new(),
             camera: camera.clone(),
@@ -256,7 +256,7 @@ impl PlayerInfoManager {
         });
         if options.game_type == core::GameType::Hotseat {
             m.insert(PlayerId{id: 1}, PlayerInfo {
-                game_state: PartialState::new(map_size, PlayerId{id: 1}),
+                game_state: PartialState::new(db, map_size, PlayerId{id: 1}),
                 pathfinder: Pathfinder::new(map_size),
                 scene: Scene::new(),
                 camera: camera,
@@ -341,7 +341,7 @@ impl Gui {
     }
 }
 
-fn make_scene(state: &PartialState, mesh_ids: &MeshIdManager) -> Scene {
+fn make_scene(db: &Db, state: &PartialState, mesh_ids: &MeshIdManager) -> Scene {
     let mut scene = Scene::new();
     let map = state.map();
     scene.add_node(SceneNode {
@@ -393,6 +393,18 @@ fn make_scene(state: &PartialState, mesh_ids: &MeshIdManager) -> Scene {
                 children: Vec::new(),
             });
         }
+    }
+    for unit in state.units().values() {
+        // let mesh_id = unit_type_visual_info.get(unit_info.type_id).mesh_id;
+        event_visualizer::show_unit_at(
+            db,
+            state,
+            &mut scene,
+            &core::unit_to_info(unit),
+            // mesh_id,
+            mesh_ids.building_mesh_id,
+            mesh_ids.marker_mesh_id,
+        );
     }
     for (&object_id, object) in state.objects() {
         match object.class {
@@ -454,7 +466,7 @@ impl TacticalScreen {
     pub fn new(context: &mut Context, core_options: &core::Options) -> TacticalScreen {
         let core = core::Core::new(core_options);
         let map_size = core.map_size();
-        let mut player_info = PlayerInfoManager::new(context, map_size, core_options);
+        let mut player_info = PlayerInfoManager::new(core.db(), context, map_size, core_options);
         let mut meshes = MeshManager::new();
         let mesh_ids = MeshIdManager::new(
             context,
@@ -468,7 +480,7 @@ impl TacticalScreen {
         let gui = Gui::new(context, &player_info.get(core.player_id()).game_state);
         let selection_manager = SelectionManager::new(mesh_ids.selection_marker_mesh_id);
         for (_, player_info) in &mut player_info.info {
-            player_info.scene = make_scene(&player_info.game_state, &mesh_ids);
+            player_info.scene = make_scene(core.db(), &player_info.game_state, &mesh_ids);
         }
         TacticalScreen {
             gui: gui,

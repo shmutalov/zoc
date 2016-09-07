@@ -692,6 +692,28 @@ fn check_sectors(db: &Db, state: &InternalState) -> Vec<CoreEvent> {
     events
 }
 
+// TODO: перенести в GameState или сделать внешней функцией
+// TODO: досыпть тестов парочку
+pub fn get_new_unit_id<S: GameState>(state: &S) -> UnitId {
+    let mut next_id = match state.units().keys().max() {
+        Some(&id) => id,
+        None => UnitId{id: 0},
+    };
+    next_id.id += 1;
+    next_id
+}
+
+// TODO: перенести в GameState или сделать внешней функцией
+// TODO: досыпть тестов парочку
+pub fn get_new_object_id<S: GameState>(state: &S) -> ObjectId {
+    let mut next_id = match state.objects().keys().max() {
+        Some(&id) => id,
+        None => ObjectId{id: 0},
+    };
+    next_id.id += 1;
+    next_id
+}
+
 #[derive(PartialEq, Clone, Copy, Debug)]
 enum ReactionFireResult {
     Attacked,
@@ -724,7 +746,6 @@ pub struct Core {
     db: Db,
     ai: Ai,
     players_info: HashMap<PlayerId, PlayerInfo>,
-    next_unit_id: UnitId,
 }
 
 fn get_players_list(game_type: GameType) -> Vec<Player> {
@@ -878,6 +899,7 @@ pub fn get_free_slot_id<S: GameState>(
     None
 }
 
+// TODO: досыпть тестов
 pub fn get_slots_count<S: GameState>(state: &S, pos: MapPos) -> i32 {
     match *state.map().tile(pos) {
         Terrain::Water => 1,
@@ -916,14 +938,16 @@ pub fn is_exact_pos_free<S: GameState>(
 impl Core {
     pub fn new(options: &Options) -> Core {
         let map_size = Size2{w: 10, h: 12}; // TODO: read from config file
+        let db = Db::new();
+        let state = InternalState::new(&db, map_size);
+        let ai = Ai::new(&db, PlayerId{id:1}, map_size);
         let mut core = Core {
-            state: InternalState::new(map_size),
+            state: state,
             players: get_players_list(options.game_type),
             current_player_id: PlayerId{id: 0},
-            db: Db::new(),
-            ai: Ai::new(PlayerId{id:1}, map_size),
+            db: db,
+            ai: ai,
             players_info: get_player_info_lists(map_size),
-            next_unit_id: UnitId{id: 0},
         };
         core.get_units();
         core
@@ -935,6 +959,7 @@ impl Core {
 
     // TODO: Move to scenario.json
     fn get_units(&mut self) {
+        /*
         for &(player_id, (x, y), type_name) in &[
             (0, (0, 1), "medium_tank"),
             (0, (0, 4), "mammoth_tank"),
@@ -964,25 +989,11 @@ impl Core {
             let unit_type_id = self.db.unit_type_id(type_name);
             self.add_unit(pos, unit_type_id, PlayerId{id: player_id});
         }
-    }
-
-    fn get_new_unit_id(&mut self) -> UnitId {
-        let new_unit_id = self.next_unit_id;
-        self.next_unit_id.id += 1;
-        new_unit_id
-    }
-
-    fn get_new_object_id(&mut self) -> ObjectId {
-        let mut next_id = match self.state.objects().keys().max() {
-            Some(&id) => id,
-            None => ObjectId{id: 0},
-        };
-        next_id.id += 1;
-        next_id
+        */
     }
 
     fn add_unit(&mut self, pos: MapPos, type_id: UnitTypeId, player_id: PlayerId) {
-        let new_unit_id = self.get_new_unit_id();
+        let new_unit_id = get_new_unit_id(&self.state);
         let pos = get_free_exact_pos(&self.db, &self.state, type_id, pos).unwrap();
         let event = CoreEvent::CreateUnit {
             unit_info: UnitInfo {
@@ -1225,7 +1236,7 @@ impl Core {
             Command::CreateUnit{pos, type_id} => {
                 let event = CoreEvent::CreateUnit {
                     unit_info: UnitInfo {
-                        unit_id: self.get_new_unit_id(),
+                        unit_id: get_new_unit_id(&self.state),
                         pos: pos,
                         type_id: type_id,
                         player_id: self.current_player_id,
@@ -1309,7 +1320,7 @@ impl Core {
                 });
             },
             Command::Smoke{unit_id, pos} => {
-                let id = self.get_new_object_id();
+                let id = get_new_object_id(&self.state);
                 self.do_core_event(&CoreEvent::Smoke {
                     id: id,
                     unit_id: Some(unit_id),
@@ -1329,7 +1340,7 @@ impl Core {
                         dir_index -= 6;
                     }
                     dir = Dir::from_int(dir_index);
-                    let id = self.get_new_object_id();
+                    let id = get_new_object_id(&self.state);
                     self.do_core_event(&CoreEvent::Smoke {
                         id: id,
                         unit_id: Some(unit_id),

@@ -41,7 +41,7 @@ pub struct InternalState {
 }
 
 impl InternalState {
-    pub fn new(map_size: Size2) -> InternalState {
+    pub fn new(db: &Db, map_size: Size2) -> InternalState {
         let mut map = Map::new(map_size);
         // TODO: read from scenario.json?
         *map.tile_mut(MapPos{v: Vector2{x: 6, y: 7}}) = Terrain::Water;
@@ -136,6 +136,35 @@ impl InternalState {
             MapPos{v: Vector2{x: 6, y: 10}},
             MapPos{v: Vector2{x: 7, y: 11}},
         ]);
+        for &(player_id, (x, y), type_name) in &[
+            (0, (0, 1), "medium_tank"),
+            (0, (0, 4), "mammoth_tank"),
+            (0, (0, 5), "heavy_tank"),
+            (0, (0, 5), "medium_tank"),
+            (0, (1, 3), "truck"),
+            (0, (1, 3), "mortar"),
+            (0, (1, 4), "jeep"),
+            (0, (3, 3), "helicopter"),
+            (0, (2, 2), "soldier"),
+            (0, (2, 2), "scout"),
+            (0, (2, 4), "smg"),
+            (0, (2, 4), "smg"),
+            (1, (9, 1), "medium_tank"),
+            (1, (9, 2), "soldier"),
+            (1, (9, 2), "soldier"),
+            (1, (9, 4), "soldier"),
+            (1, (9, 5), "light_tank"),
+            (1, (9, 5), "light_tank"),
+            (1, (9, 6), "light_spg"),
+            (1, (8, 2), "field_gun"),
+            (1, (8, 4), "field_gun"),
+            (1, (5, 10), "field_gun"),
+            (1, (5, 10), "soldier"),
+        ] {
+            let pos = MapPos{v: Vector2{x: x, y: y}};
+            let unit_type_id = db.unit_type_id(type_name);
+            // self.add_unit(pos, unit_type_id, PlayerId{id: player_id});
+        }
         state
     }
 
@@ -158,6 +187,8 @@ impl InternalState {
 
     // TODO: create trees, buildings and roads like units - using event system
     fn add_object(&mut self, object: Object) {
+        // Это неправильно, нельзя отталкиваться от количества объектов - они же впоолне могут пропадать!
+        // TODO: заменить на core::get_new_object_id
         let id = ObjectId{id: self.objects.len() as i32 + 1};
         self.objects.insert(id, object);
     }

@@ -91,7 +91,7 @@ fn get_player_color(player_id: PlayerId) -> [f32; 4] {
     }
 }
 
-fn show_unit_at(
+pub fn show_unit_at(
     db: &Db,
     state: &PartialState,
     scene: &mut Scene,
