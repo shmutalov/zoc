@@ -1,7 +1,7 @@
 use std::collections::{HashMap};
 use cgmath::{Vector2};
 use types::{Size2};
-use unit::{Unit};
+use unit::{Unit, UnitTypeId};
 use db::{Db};
 use map::{Map, Terrain};
 use game_state::{GameState, GameStateMut};
@@ -23,6 +23,8 @@ use ::{
     SectorId,
     Score,
     get_free_slot_for_building,
+    get_new_unit_id,
+    get_free_exact_pos,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -163,7 +165,8 @@ impl InternalState {
         ] {
             let pos = MapPos{v: Vector2{x: x, y: y}};
             let unit_type_id = db.unit_type_id(type_name);
-            // self.add_unit(pos, unit_type_id, PlayerId{id: player_id});
+            let player_id = PlayerId{id: player_id};
+            state.add_unit_2(db, pos, unit_type_id, player_id);
         }
         state
     }
@@ -253,6 +256,27 @@ impl InternalState {
                 }
             }
         }
+    }
+
+    // TODO: переименовать. initial_unit_add какой-нибудь
+    fn add_unit_2(&mut self, db: &Db, pos: MapPos, type_id: UnitTypeId, player_id: PlayerId) {
+        let unit_id = get_new_unit_id(self);
+        let pos = get_free_exact_pos(db, self, type_id, pos).unwrap();
+        let unit_type = db.unit_type(type_id);
+        assert!(self.units.get(&unit_id).is_none());
+        self.units.insert(unit_id, Unit {
+            id: unit_id,
+            pos: pos,
+            player_id: player_id,
+            type_id: type_id,
+            move_points: unit_type.move_points,
+            attack_points: unit_type.attack_points,
+            reactive_attack_points: Some(unit_type.reactive_attack_points),
+            reaction_fire_mode: ReactionFireMode::Normal,
+            count: unit_type.count,
+            morale: 100,
+            passenger_id: None,
+        });
     }
 
     fn add_unit(&mut self, db: &Db, unit_info: &UnitInfo, info_level: InfoLevel) {

@@ -341,7 +341,12 @@ impl Gui {
     }
 }
 
-fn make_scene(db: &Db, state: &PartialState, mesh_ids: &MeshIdManager) -> Scene {
+fn make_scene(
+    db: &Db,
+    unit_type_visual_info: &UnitTypeVisualInfoManager,
+    mesh_ids: &MeshIdManager,
+    state: &PartialState,
+) -> Scene {
     let mut scene = Scene::new();
     let map = state.map();
     scene.add_node(SceneNode {
@@ -395,14 +400,14 @@ fn make_scene(db: &Db, state: &PartialState, mesh_ids: &MeshIdManager) -> Scene 
         }
     }
     for unit in state.units().values() {
-        // let mesh_id = unit_type_visual_info.get(unit_info.type_id).mesh_id;
+        let mesh_id = unit_type_visual_info.get(unit.type_id).mesh_id;
         event_visualizer::show_unit_at(
             db,
             state,
             &mut scene,
             &core::unit_to_info(unit),
-            // mesh_id,
-            mesh_ids.building_mesh_id,
+            mesh_id,
+            // mesh_ids.building_mesh_id,
             mesh_ids.marker_mesh_id,
         );
     }
@@ -480,7 +485,12 @@ impl TacticalScreen {
         let gui = Gui::new(context, &player_info.get(core.player_id()).game_state);
         let selection_manager = SelectionManager::new(mesh_ids.selection_marker_mesh_id);
         for (_, player_info) in &mut player_info.info {
-            player_info.scene = make_scene(core.db(), &player_info.game_state, &mesh_ids);
+            player_info.scene = make_scene(
+                core.db(),
+                &unit_type_visual_info,
+                &mesh_ids,
+                &player_info.game_state,
+            );
         }
         TacticalScreen {
             gui: gui,

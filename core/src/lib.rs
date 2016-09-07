@@ -992,6 +992,7 @@ impl Core {
         */
     }
 
+    /*
     fn add_unit(&mut self, pos: MapPos, type_id: UnitTypeId, player_id: PlayerId) {
         let new_unit_id = get_new_unit_id(&self.state);
         let pos = get_free_exact_pos(&self.db, &self.state, type_id, pos).unwrap();
@@ -1006,6 +1007,7 @@ impl Core {
         };
         self.do_core_event(&event);
     }
+    */
 
     pub fn map_size(&self) -> Size2 {
         self.state.map().size()

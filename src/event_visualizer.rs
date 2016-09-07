@@ -99,6 +99,7 @@ pub fn show_unit_at(
     mesh_id: MeshId,
     marker_mesh_id: MeshId,
 ) {
+    println!("show_unit_at: {:?}", unit_info.unit_id);
     let world_pos = geom::exact_pos_to_world_pos(state, unit_info.pos);
     let to = world_pos;
     let rot = rad(thread_rng().gen_range(0.0, PI * 2.0));

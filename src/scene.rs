@@ -102,6 +102,7 @@ impl Scene {
 
     pub fn add_unit(&mut self, unit_id: UnitId, node: SceneNode) -> NodeId {
         let node_id = self.add_node(node);
+        println!("Scene::add_unit: {:?}", unit_id);
         assert!(!self.unit_id_to_node_id_map.contains_key(&unit_id));
         self.unit_id_to_node_id_map.insert(unit_id, node_id);
         node_id
