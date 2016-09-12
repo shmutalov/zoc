@@ -154,6 +154,7 @@ pub enum ObjectClass {
     Building,
     Road,
     Smoke,
+    ReinforcementSector,
 }
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, Clone, Copy)]
@@ -166,6 +167,7 @@ pub struct Object {
     pub pos: ExactPos,
     pub class: ObjectClass,
     pub timer: Option<i32>,
+    pub owner_id: Option<PlayerId>,
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -849,7 +851,9 @@ pub fn get_free_slot_id<S: GameState>(
         for object in &objects_at {
             match object.class {
                 ObjectClass::Building => return None,
-                ObjectClass::Smoke | ObjectClass::Road => {},
+                ObjectClass::Smoke |
+                ObjectClass::ReinforcementSector |
+                ObjectClass::Road => {},
             }
         }
         if units_at.is_empty() {
@@ -875,7 +879,9 @@ pub fn get_free_slot_id<S: GameState>(
                 SlotId::WholeTile => {
                     match object.class {
                         ObjectClass::Building => return None,
-                        ObjectClass::Smoke | ObjectClass::Road => {},
+                        ObjectClass::Smoke |
+                        ObjectClass::ReinforcementSector |
+                        ObjectClass::Road => {},
                     }
                 }
                 SlotId::TwoTiles(_) | SlotId::Air => {},

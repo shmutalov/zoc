@@ -83,7 +83,8 @@ impl EventVisualizer for EventEndTurnVisualizer {
     fn end(&mut self, _: &mut Scene, _: &PartialState) {}
 }
 
-fn get_player_color(player_id: PlayerId) -> [f32; 4] {
+// TODO: вынести куда-то отсюда
+pub fn get_player_color(player_id: PlayerId) -> [f32; 4] {
     match player_id.id {
         0 => [0.1, 0.1, 1.0, 1.0],
         1 => [0.0, 0.8, 0.0, 1.0],

@@ -120,6 +120,7 @@ struct MeshIdManager {
     selection_marker_mesh_id: MeshId,
     smoke_mesh_id: MeshId,
     fow_tile_mesh_id: MeshId,
+    reinforcement_sector_tile_mesh_id: MeshId,
     sector_mesh_ids: HashMap<core::SectorId, MeshId>,
 }
 
@@ -131,6 +132,8 @@ impl MeshIdManager {
     ) -> MeshIdManager {
         let smoke_tex = load_texture(context, &fs::load("smoke.png").into_inner());
         let floor_tex = load_texture(context, &fs::load("hex.png").into_inner());
+        let reinforcement_sector_tex = load_texture(
+            context, &fs::load("reinforcement_sector.png").into_inner());
         let chess_grid_tex = load_texture(context, &fs::load("chess_grid.png").into_inner());
         let map_mesh_id = meshes.add(gen::generate_map_mesh(
             context, state, floor_tex.clone()));
@@ -145,6 +148,8 @@ impl MeshIdManager {
         let selection_marker_mesh_id = meshes.add(get_selection_mesh(context));
         let smoke_mesh_id = meshes.add(gen::get_one_tile_mesh(context, smoke_tex));
         let fow_tile_mesh_id = meshes.add(gen::get_one_tile_mesh(context, floor_tex));
+        let reinforcement_sector_tile_mesh_id = meshes.add(
+            gen::get_one_tile_mesh(context, reinforcement_sector_tex));
         let big_building_mesh_id = meshes.add(
             load_object_mesh(context, "big_building"));
         let building_mesh_id = meshes.add(
@@ -175,6 +180,7 @@ impl MeshIdManager {
             selection_marker_mesh_id: selection_marker_mesh_id,
             smoke_mesh_id: smoke_mesh_id,
             fow_tile_mesh_id: fow_tile_mesh_id,
+            reinforcement_sector_tile_mesh_id: reinforcement_sector_tile_mesh_id,
             sector_mesh_ids: sector_mesh_ids,
         }
     }
@@ -213,7 +219,6 @@ fn get_unit_type_visual_info(
 pub struct Gui {
     button_manager: ButtonManager,
     button_end_turn_id: ButtonId,
-    button_reinforcements_id: ButtonId,
     button_deselect_unit_id: ButtonId,
     button_next_unit_id: ButtonId,
     button_prev_unit_id: ButtonId,
@@ -259,21 +264,9 @@ impl Gui {
             label_score.set_pos(pos);
             button_manager.add_button(label_score)
         };
-        let button_reinforcements_id = {
-            let vp_pos = ScreenPos{v: Vector2 {
-                x: context.win_size.w - 10,
-                y: 10,
-            }};
-            let mut button = Button::new(context, "[reinforcements]", vp_pos);
-            let mut pos = button.pos();
-            pos.v.x -= button.size().w;
-            button.set_pos(pos);
-            button_manager.add_button(button)
-        };
         Gui {
             button_manager: button_manager,
             button_end_turn_id: button_end_turn_id,
-            button_reinforcements_id: button_reinforcements_id,
             button_deselect_unit_id: button_deselect_unit_id,
             button_prev_unit_id: button_prev_unit_id,
             button_next_unit_id: button_next_unit_id,
@@ -340,6 +333,24 @@ fn make_scene(state: &PartialState, mesh_ids: &MeshIdManager) -> Scene {
     }
     for (&object_id, object) in state.objects() {
         match object.class {
+            core::ObjectClass::ReinforcementSector => {
+                let mut pos = geom::map_pos_to_world_pos(object.pos.map_pos);
+                pos.v.z += 0.03; // TODO: layers
+                let mut color = match object.owner_id {
+                    Some(player_id) => {
+                        event_visualizer::get_player_color(player_id)
+                    },
+                    None => [1.0, 1.0, 1.0, 1.0],
+                };
+                color[3] = 0.6;
+                scene.add_object(object_id, SceneNode {
+                    pos: pos,
+                    rot: rad(thread_rng().gen_range(0.0, PI * 2.0)),
+                    mesh_id: Some(mesh_ids.reinforcement_sector_tile_mesh_id),
+                    color: color,
+                    children: Vec::new(),
+                });
+            },
             core::ObjectClass::Building => {
                 let pos = geom::exact_pos_to_world_pos(state, object.pos);
                 let rot = rad(thread_rng().gen_range(0.0, PI * 2.0));
@@ -391,7 +402,7 @@ pub struct TacticalScreen {
     selected_unit_id: Option<UnitId>,
     selection_manager: SelectionManager,
     context_menu_popup_rx: Option<Receiver<context_menu_popup::Command>>,
-    reinforcements_popup_rx: Option<Receiver<Option<UnitTypeId>>>,
+    reinforcements_popup_rx: Option<Receiver<Option<(UnitTypeId, ExactPos)>>>,
 }
 
 impl TacticalScreen {
@@ -432,13 +443,20 @@ impl TacticalScreen {
         screen
     }
 
-    fn show_reinforcements_menu(&mut self, context: &mut Context) {
+    fn show_reinforcements_menu(&mut self, context: &mut Context, pos: MapPos) {
         let (tx, rx) = channel();
         // let mut menu_pos = context.mouse().pos;
         let mut menu_pos = ScreenPos{v: Vector2{x: 10, y: 10}};
         menu_pos.v.y = context.win_size.h - menu_pos.v.y;
         let screen = ReinforcementsPopup::new(
-            self.core.db(), context, menu_pos, tx);
+            self.core.db(),
+            self.core.player_id(),
+            self.current_state(),
+            context,
+            menu_pos,
+            pos,
+            tx,
+        );
         self.reinforcements_popup_rx = Some(rx);
         context.add_command(ScreenCommand::PushPopup(Box::new(screen)));
     }
@@ -585,28 +603,6 @@ impl TacticalScreen {
         );
         self.context_menu_popup_rx = Some(rx);
         context.add_command(ScreenCommand::PushPopup(Box::new(screen)));
-    }
-
-    fn create_unit(&mut self, context: &Context, type_id: UnitTypeId) {
-        if self.event_visualizer.is_some() {
-            return;
-        }
-        let pick_result = self.pick_tile(context);
-        if let Some(pos) = pick_result {
-            if let Some(exact_pos) = core::get_free_exact_pos(
-                self.core.db(),
-                self.current_state(),
-                type_id,
-                pos,
-            ) {
-                self.core.do_command(Command::CreateUnit {
-                    pos: exact_pos,
-                    type_id: type_id,
-                });
-            } else {
-                self.map_text_manager.add_text(pos, "No free slot for unit");
-            }
-        }
     }
 
     // TODO: add ability to select enemy units
@@ -758,14 +754,6 @@ impl TacticalScreen {
             VirtualKeyCode::I => {
                 self.print_info(context);
             },
-            VirtualKeyCode::U => {
-                let type_id = self.core.db().unit_type_id("soldier");
-                self.create_unit(context, type_id);
-            },
-            VirtualKeyCode::T => {
-                let type_id = self.core.db().unit_type_id("medium_tank");
-                self.create_unit(context, type_id);
-            },
             VirtualKeyCode::Subtract | VirtualKeyCode::Key1 => {
                 self.current_player_info_mut().camera.change_zoom(1.3);
             },
@@ -794,8 +782,6 @@ impl TacticalScreen {
     fn handle_event_button_press(&mut self, context: &mut Context, button_id: ButtonId) {
         if button_id == self.gui.button_end_turn_id {
             self.end_turn(context);
-        } else if button_id == self.gui.button_reinforcements_id {
-            self.show_reinforcements_menu(context);
         } else if button_id == self.gui.button_deselect_unit_id {
             self.deselect_unit(context);
         } else if button_id == self.gui.button_prev_unit_id {
@@ -1166,7 +1152,6 @@ impl TacticalScreen {
             self.select_unit(context, id);
             return;
         }
-        let selected_unit_id = self.selected_unit_id.unwrap();
         match command {
             context_menu_popup::Command::Select{id} => {
                 self.select_unit(context, id);
@@ -1178,18 +1163,21 @@ impl TacticalScreen {
                 self.move_unit(pos, core::MoveMode::Hunt);
             },
             context_menu_popup::Command::Attack{id} => {
+                let selected_unit_id = self.selected_unit_id.unwrap();
                 self.core.do_command(Command::AttackUnit {
                     attacker_id: selected_unit_id,
                     defender_id: id,
                 });
             },
             context_menu_popup::Command::LoadUnit{passenger_id} => {
+                let selected_unit_id = self.selected_unit_id.unwrap();
                 self.core.do_command(Command::LoadUnit {
                     transporter_id: selected_unit_id,
                     passenger_id: passenger_id,
                 });
             },
             context_menu_popup::Command::UnloadUnit{pos} => {
+                let selected_unit_id = self.selected_unit_id.unwrap();
                 let passenger_id = {
                     let transporter = self.current_state()
                         .unit(selected_unit_id);
@@ -1214,34 +1202,21 @@ impl TacticalScreen {
                 });
             },
             context_menu_popup::Command::Smoke{pos} => {
+                let selected_unit_id = self.selected_unit_id.unwrap();
                 self.core.do_command(Command::Smoke {
                     unit_id: selected_unit_id,
                     pos: pos,
                 });
             },
+            context_menu_popup::Command::CallReiforcements{pos} => {
+                self.show_reinforcements_menu(context, pos);
+            },
         }
     }
 
-    fn handle_reinforce_command(&mut self, type_id: UnitTypeId) {
-        let start_map_pos = match self.core.player_id() {
-            PlayerId{id: 0} => MapPos{v: Vector2{x: 0, y: 0}},
-            PlayerId{id: 1} => MapPos{v: Vector2{x: 9, y: 11}}, // TODO
-            _ => unimplemented!(),
-        };
-        let exact_pos = match core::get_free_exact_pos(
-            self.core.db(),
-            self.current_state(),
-            type_id,
-            start_map_pos,
-        ) {
-            Some(exact_pos) => exact_pos,
-            None => {
-                println!("WTF?!");
-                return;
-            }
-        };
+    fn handle_reinforce_command(&mut self, type_id: UnitTypeId, pos: ExactPos) {
         self.core.do_command(Command::CreateUnit {
-            pos: exact_pos,
+            pos: pos,
             type_id: type_id,
         });
     }
@@ -1251,8 +1226,8 @@ impl TacticalScreen {
             self.handle_context_menu_popup_command(context, command);
         }
         for opt_unit_type_id in opt_rx_collect(&self.reinforcements_popup_rx) {
-            if let Some(id) = opt_unit_type_id {
-                self.handle_reinforce_command(id);
+            if let Some((id, pos)) = opt_unit_type_id {
+                self.handle_reinforce_command(id, pos);
             }
         }
     }

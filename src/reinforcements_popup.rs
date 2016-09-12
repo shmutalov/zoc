@@ -2,6 +2,9 @@ use std::sync::mpsc::{Sender};
 use std::collections::{HashMap};
 use glutin::{self, Event, MouseButton, VirtualKeyCode};
 use glutin::ElementState::{Released};
+use core::{MapPos, ExactPos, PlayerId, get_free_exact_pos};
+use core::partial_state::{PartialState};
+use core::game_state::{GameState};
 use core::unit::{UnitTypeId};
 use core::db::{Db};
 use types::{Time, ScreenPos};
@@ -11,18 +14,23 @@ use gui::{ButtonManager, Button, ButtonId, is_tap, basic_text_size};
 
 #[derive(Clone, Debug)]
 pub struct ReinforcementsPopup {
-    game_screen_tx: Sender<Option<UnitTypeId>>,
+    game_screen_tx: Sender<Option<(UnitTypeId, ExactPos)>>,
     button_manager: ButtonManager,
-    button_ids: HashMap<ButtonId, UnitTypeId>,
+    button_ids: HashMap<ButtonId, (UnitTypeId, ExactPos)>,
+    map_pos: MapPos, // убрать, раз точные позиции храню
 }
 
 impl ReinforcementsPopup {
     pub fn new(
         db: &Db,
+        player_id: PlayerId,
+        state: &PartialState,
         context: &mut Context,
         pos: ScreenPos,
-        tx: Sender<Option<UnitTypeId>>,
+        map_pos: MapPos,
+        tx: Sender<Option<(UnitTypeId, ExactPos)>>,
     ) -> ReinforcementsPopup {
+        let reinforcement_points = state.reinforcement_points()[&player_id];
         let mut button_manager = ButtonManager::new();
         let mut button_ids = HashMap::new();
         let mut pos = pos;
@@ -30,17 +38,32 @@ impl ReinforcementsPopup {
         pos.v.y -= text_size as i32;
         let vstep = (text_size * 0.8) as i32;
         for (i, unit_type) in db.unit_types().iter().enumerate() {
+            // TODO: проверять цену
             let unit_type_id = UnitTypeId{id: i as i32};
+            let exact_pos = match get_free_exact_pos(
+                db,
+                state,
+                unit_type_id,
+                map_pos,
+            ) {
+                Some(exact_pos) => exact_pos,
+                None => continue,
+            };
+            if unit_type.cost > reinforcement_points {
+                continue;
+            }
             let text = &format!("{} ({})", unit_type.name, unit_type.cost);
             let button_id = button_manager.add_button(
                 Button::new(context, text, pos));
-            button_ids.insert(button_id, unit_type_id);
+            button_ids.insert(button_id, (unit_type_id, exact_pos));
             pos.v.y -= vstep;
         }
+        assert!(button_ids.len() > 0);
         ReinforcementsPopup {
             game_screen_tx: tx,
             button_manager: button_manager,
             button_ids: button_ids,
+            map_pos: map_pos,
         }
     }
 

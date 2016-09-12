@@ -117,6 +117,17 @@ impl InternalState {
         state.add_buildings(MapPos{v: Vector2{x: 8, y: 11}}, 2);
         state.add_buildings(MapPos{v: Vector2{x: 8, y: 10}}, 2);
         state.add_buildings(MapPos{v: Vector2{x: 9, y: 11}}, 1);
+        for &((x, y), player_index) in &[
+            ((0, 0), 0),
+            ((0, 1), 0),
+            ((9, 2), 1),
+            ((9, 3), 1),
+        ] {
+            state.add_reinforcement_sector(
+                MapPos{v: Vector2{x: x, y: y}},
+                Some(PlayerId{id: player_index}),
+            );
+        }
         state.add_road(&[
             MapPos{v: Vector2{x: 0, y: 1}},
             MapPos{v: Vector2{x: 1, y: 1}},
@@ -158,6 +169,7 @@ impl InternalState {
                     slot_id: SlotId::TwoTiles(dir),
                 },
                 timer: None,
+                owner_id: None,
             };
             self.add_object(object);
         }
@@ -169,6 +181,23 @@ impl InternalState {
         self.objects.insert(id, object);
     }
 
+    fn add_reinforcement_sector(
+        &mut self,
+        pos: MapPos,
+        owner_id: Option<PlayerId>,
+    ) {
+        let object = Object {
+            class: ObjectClass::ReinforcementSector,
+            pos: ExactPos {
+                map_pos: pos,
+                slot_id: SlotId::WholeTile,
+            },
+            timer: None,
+            owner_id: owner_id,
+        };
+        self.add_object(object);
+    }
+
     fn add_big_building(&mut self, pos: MapPos) {
         *self.map.tile_mut(pos) = Terrain::City;
         let object = Object {
@@ -178,6 +207,7 @@ impl InternalState {
                 slot_id: SlotId::WholeTile,
             },
             timer: None,
+            owner_id: None,
         };
         self.add_object(object);
     }
@@ -191,6 +221,7 @@ impl InternalState {
                 class: ObjectClass::Building,
                 pos: obj_pos,
                 timer: None,
+                owner_id: None,
             };
             self.add_object(object);
         }
@@ -415,6 +446,7 @@ impl GameStateMut for InternalState {
                         slot_id: SlotId::WholeTile,
                     },
                     timer: Some(5),
+                    owner_id: None,
                 });
             },
             CoreEvent::RemoveSmoke{id} => {
