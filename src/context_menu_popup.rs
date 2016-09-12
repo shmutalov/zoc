@@ -11,6 +11,7 @@ use screen::{Screen, ScreenCommand, EventStatus};
 use context::{Context};
 use gui::{ButtonManager, Button, ButtonId, is_tap, basic_text_size};
 use player_info::{PlayerInfo};
+use reinforcements_popup;
 
 fn can_unload_unit(
     db: &Db,
@@ -60,9 +61,15 @@ pub fn get_options(
             Some(id) => id,
             None => continue,
         };
-        if owner_id == player_id {
-            options.reinforcements_pos = Some(pos);
+        if owner_id != player_id {
+            continue;
         }
+        let reinforcement_options = reinforcements_popup::get_options(
+            db, state, player_id, pos);
+        if reinforcement_options == reinforcements_popup::Options::new() {
+            continue;
+        }
+        options.reinforcements_pos = Some(pos);
     }
     let selected_unit_id = match selected_unit_id {
         Some(id) => id,
@@ -166,6 +173,7 @@ pub enum Command {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Options {
+    // TODO: убрать все эти pub?
     pub selects: Vec<UnitId>,
     pub attacks: Vec<(UnitId, i32)>,
     pub loads: Vec<UnitId>,

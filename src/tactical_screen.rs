@@ -27,7 +27,7 @@ use fs;
 use geom;
 use screen::{Screen, ScreenCommand, EventStatus};
 use context_menu_popup::{self, ContextMenuPopup};
-use reinforcements_popup::{ReinforcementsPopup};
+use reinforcements_popup::{self, ReinforcementsPopup};
 use end_turn_screen::{EndTurnScreen};
 use game_results_screen::{GameResultsScreen};
 use types::{ScreenPos, WorldPos};
@@ -444,19 +444,21 @@ impl TacticalScreen {
     }
 
     fn show_reinforcements_menu(&mut self, context: &mut Context, pos: MapPos) {
+        let options = reinforcements_popup::get_options(
+            &self.core.db(),
+            self.current_state(),
+            self.core.player_id(),
+            pos,
+        );
+        if options == reinforcements_popup::Options::new() {
+            return;
+        }
         let (tx, rx) = channel();
         // let mut menu_pos = context.mouse().pos;
         let mut menu_pos = ScreenPos{v: Vector2{x: 10, y: 10}};
         menu_pos.v.y = context.win_size.h - menu_pos.v.y;
         let screen = ReinforcementsPopup::new(
-            self.core.db(),
-            self.core.player_id(),
-            self.current_state(),
-            context,
-            menu_pos,
-            pos,
-            tx,
-        );
+            self.core.db(), context, menu_pos, options, tx);
         self.reinforcements_popup_rx = Some(rx);
         context.add_command(ScreenCommand::PushPopup(Box::new(screen)));
     }
