@@ -22,6 +22,8 @@ use ::{
     Sector,
     SectorId,
     Score,
+    MovePoints,
+    AttackPoints,
     get_free_slot_for_building,
 };
 
@@ -245,10 +247,10 @@ impl InternalState {
             pos: unit_info.pos,
             player_id: unit_info.player_id,
             type_id: unit_info.type_id,
-            move_points: unit_type.move_points,
-            attack_points: unit_type.attack_points,
+            move_points: MovePoints{n: 0},
+            attack_points: AttackPoints{n: 0},
             reactive_attack_points: if info_level == InfoLevel::Full {
-                Some(unit_type.reactive_attack_points)
+                Some(AttackPoints{n: 0})
             } else {
                 None
             },
