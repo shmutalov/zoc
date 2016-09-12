@@ -915,53 +915,18 @@ pub fn is_exact_pos_free<S: GameState>(
 impl Core {
     pub fn new(options: &Options) -> Core {
         let map_size = Size2{w: 10, h: 12}; // TODO: read from config file
-        let mut core = Core {
+        Core {
             state: InternalState::new(map_size),
             players: get_players_list(options.game_type),
             current_player_id: PlayerId{id: 0},
             db: Db::new(),
             ai: Ai::new(PlayerId{id:1}, map_size),
             players_info: get_player_info_lists(map_size),
-        };
-        core.get_units();
-        core
+        }
     }
 
     pub fn db(&self) -> &Db {
         &self.db
-    }
-
-    // TODO: Move to scenario.json
-    fn get_units(&mut self) {
-        for &(player_id, (x, y), type_name) in &[
-            (0, (0, 1), "medium_tank"),
-            (0, (0, 4), "mammoth_tank"),
-            (0, (0, 5), "heavy_tank"),
-            (0, (0, 5), "medium_tank"),
-            (0, (1, 3), "truck"),
-            (0, (1, 3), "mortar"),
-            (0, (1, 4), "jeep"),
-            (0, (3, 3), "helicopter"),
-            (0, (2, 2), "soldier"),
-            (0, (2, 2), "scout"),
-            (0, (2, 4), "smg"),
-            (0, (2, 4), "smg"),
-            (1, (9, 1), "medium_tank"),
-            (1, (9, 2), "soldier"),
-            (1, (9, 2), "soldier"),
-            (1, (9, 4), "soldier"),
-            (1, (9, 5), "light_tank"),
-            (1, (9, 5), "light_tank"),
-            (1, (9, 6), "light_spg"),
-            (1, (8, 2), "field_gun"),
-            (1, (8, 4), "field_gun"),
-            (1, (5, 10), "field_gun"),
-            (1, (5, 10), "soldier"),
-        ] {
-            let pos = MapPos{v: Vector2{x: x, y: y}};
-            let unit_type_id = self.db.unit_type_id(type_name);
-            self.add_unit(pos, unit_type_id, PlayerId{id: player_id});
-        }
     }
 
     fn get_new_unit_id(&mut self) -> UnitId {
@@ -980,21 +945,6 @@ impl Core {
         };
         next_id.id += 1;
         next_id
-    }
-
-    fn add_unit(&mut self, pos: MapPos, type_id: UnitTypeId, player_id: PlayerId) {
-        let new_unit_id = self.get_new_unit_id();
-        let pos = get_free_exact_pos(&self.db, &self.state, type_id, pos).unwrap();
-        let event = CoreEvent::CreateUnit {
-            unit_info: UnitInfo {
-                unit_id: new_unit_id,
-                pos: pos,
-                type_id: type_id,
-                player_id: player_id,
-                passenger_id: None,
-            },
-        };
-        self.do_core_event(&event);
     }
 
     pub fn map_size(&self) -> Size2 {

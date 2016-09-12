@@ -217,7 +217,7 @@ impl ContextMenuPopup {
         let text_size = basic_text_size(context);
         pos.v.y -= text_size as i32 / 2;
         pos.v.x -= text_size as i32 / 2;
-        let vstep = (text_size * 0.9) as i32;
+        let vstep = (text_size * 0.8) as i32;
         for &unit_id in &options.selects {
             let unit_type = db.unit_type(state.unit(unit_id).type_id);
             let button_id = button_manager.add_button(

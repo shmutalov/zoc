@@ -27,6 +27,7 @@ use fs;
 use geom;
 use screen::{Screen, ScreenCommand, EventStatus};
 use context_menu_popup::{self, ContextMenuPopup};
+use reinforcements_popup::{ReinforcementsPopup};
 use end_turn_screen::{EndTurnScreen};
 use game_results_screen::{GameResultsScreen};
 use types::{ScreenPos, WorldPos};
@@ -212,6 +213,7 @@ fn get_unit_type_visual_info(
 pub struct Gui {
     button_manager: ButtonManager,
     button_end_turn_id: ButtonId,
+    button_reinforcements_id: ButtonId,
     button_deselect_unit_id: ButtonId,
     button_next_unit_id: ButtonId,
     button_prev_unit_id: ButtonId,
@@ -257,9 +259,21 @@ impl Gui {
             label_score.set_pos(pos);
             button_manager.add_button(label_score)
         };
+        let button_reinforcements_id = {
+            let vp_pos = ScreenPos{v: Vector2 {
+                x: context.win_size.w - 10,
+                y: 10,
+            }};
+            let mut button = Button::new(context, "[reinforcements]", vp_pos);
+            let mut pos = button.pos();
+            pos.v.x -= button.size().w;
+            button.set_pos(pos);
+            button_manager.add_button(button)
+        };
         Gui {
             button_manager: button_manager,
             button_end_turn_id: button_end_turn_id,
+            button_reinforcements_id: button_reinforcements_id,
             button_deselect_unit_id: button_deselect_unit_id,
             button_prev_unit_id: button_prev_unit_id,
             button_next_unit_id: button_next_unit_id,
@@ -377,6 +391,7 @@ pub struct TacticalScreen {
     selected_unit_id: Option<UnitId>,
     selection_manager: SelectionManager,
     context_menu_popup_rx: Option<Receiver<context_menu_popup::Command>>,
+    reinforcements_popup_rx: Option<Receiver<Option<UnitTypeId>>>,
 }
 
 impl TacticalScreen {
@@ -411,9 +426,21 @@ impl TacticalScreen {
             selection_manager: selection_manager,
             map_text_manager: map_text_manager,
             context_menu_popup_rx: None,
+            reinforcements_popup_rx: None,
         };
         screen.regenerate_fow();
         screen
+    }
+
+    fn show_reinforcements_menu(&mut self, context: &mut Context) {
+        let (tx, rx) = channel();
+        // let mut menu_pos = context.mouse().pos;
+        let mut menu_pos = ScreenPos{v: Vector2{x: 10, y: 10}};
+        menu_pos.v.y = context.win_size.h - menu_pos.v.y;
+        let screen = ReinforcementsPopup::new(
+            self.core.db(), context, menu_pos, tx);
+        self.reinforcements_popup_rx = Some(rx);
+        context.add_command(ScreenCommand::PushPopup(Box::new(screen)));
     }
 
     fn end_turn(&mut self, context: &mut Context) {
@@ -767,6 +794,8 @@ impl TacticalScreen {
     fn handle_event_button_press(&mut self, context: &mut Context, button_id: ButtonId) {
         if button_id == self.gui.button_end_turn_id {
             self.end_turn(context);
+        } else if button_id == self.gui.button_reinforcements_id {
+            self.show_reinforcements_menu(context);
         } else if button_id == self.gui.button_deselect_unit_id {
             self.deselect_unit(context);
         } else if button_id == self.gui.button_prev_unit_id {
@@ -1193,9 +1222,38 @@ impl TacticalScreen {
         }
     }
 
+    fn handle_reinforce_command(&mut self, type_id: UnitTypeId) {
+        let start_map_pos = match self.core.player_id() {
+            PlayerId{id: 0} => MapPos{v: Vector2{x: 0, y: 0}},
+            PlayerId{id: 1} => MapPos{v: Vector2{x: 9, y: 11}}, // TODO
+            _ => unimplemented!(),
+        };
+        let exact_pos = match core::get_free_exact_pos(
+            self.core.db(),
+            self.current_state(),
+            type_id,
+            start_map_pos,
+        ) {
+            Some(exact_pos) => exact_pos,
+            None => {
+                println!("WTF?!");
+                return;
+            }
+        };
+        self.core.do_command(Command::CreateUnit {
+            pos: exact_pos,
+            type_id: type_id,
+        });
+    }
+
     fn handle_context_menu_popup_commands(&mut self, context: &mut Context) {
         for command in opt_rx_collect(&self.context_menu_popup_rx) {
             self.handle_context_menu_popup_command(context, command);
+        }
+        for opt_unit_type_id in opt_rx_collect(&self.reinforcements_popup_rx) {
+            if let Some(id) = opt_unit_type_id {
+                self.handle_reinforce_command(id);
+            }
         }
     }
 }
