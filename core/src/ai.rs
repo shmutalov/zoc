@@ -110,7 +110,7 @@ impl Ai {
                     attacker_id: unit.id,
                     defender_id: target.id,
                 };
-                if check_command(db, &self.state, &command).is_ok() {
+                if check_command(db, self.id, &self.state, &command).is_ok() {
                     return Some(command);
                 }
             }

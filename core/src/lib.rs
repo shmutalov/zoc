@@ -423,6 +423,7 @@ pub enum CommandError {
     NotEnoughMovePoints,
     NotEnoughAttackPoints,
     NotEnoughReactiveAttackPoints,
+    NotEnoughReinforcementPoints,
     BadMorale,
     OutOfRange,
     TooClose,
@@ -451,6 +452,7 @@ impl CommandError {
             CommandError::NotEnoughMovePoints => "Not enough move points",
             CommandError::NotEnoughAttackPoints => "No attack points",
             CommandError::NotEnoughReactiveAttackPoints => "No reactive attack points",
+            CommandError::NotEnoughReinforcementPoints => "No reinforcement points",
             CommandError::BadMorale => "Can`t attack when suppresset",
             CommandError::OutOfRange => "Out of range",
             CommandError::TooClose => "Too close",
@@ -486,6 +488,7 @@ impl std::error::Error for CommandError {
     }
 }
 
+// TODO: вынести всю `check_` фиговину в src/core/check.rs
 fn check_attack<S: GameState>(
     db: &Db,
     state: &S,
@@ -535,19 +538,25 @@ fn check_attack<S: GameState>(
 
 pub fn check_command<S: GameState>(
     db: &Db,
+    player_id: PlayerId,
     state: &S,
     command: &Command,
 ) -> Result<(), CommandError> {
     match *command {
         Command::EndTurn => Ok(()),
         Command::CreateUnit{pos, type_id} => {
-            if is_exact_pos_free(db, state, type_id, pos) {
-                Ok(())
-            } else {
-                Err(CommandError::TileIsOccupied)
+            let unit_type = db.unit_type(type_id);
+            let reinforcement_points = state.reinforcement_points()[&player_id];
+            if unit_type.cost > reinforcement_points {
+                return Err(CommandError::NotEnoughReinforcementPoints);
             }
+            if !is_exact_pos_free(db, state, type_id, pos) {
+                return Err(CommandError::TileIsOccupied);
+            }
+            Ok(())
         },
         Command::Move{unit_id, ref path, mode} => {
+            // TODO: проверь что это твой юнит
             if path.len() < 2 {
                 return Err(CommandError::BadPath);
             }
@@ -569,6 +578,7 @@ pub fn check_command<S: GameState>(
             Ok(())
         },
         Command::AttackUnit{attacker_id, defender_id} => {
+            // TODO: проверь что это твой юнит
             if state.units().get(&attacker_id).is_none() {
                 return Err(CommandError::BadAttackerId);
             }
@@ -580,6 +590,7 @@ pub fn check_command<S: GameState>(
             check_attack(db, state, attacker, defender, FireMode::Active)
         },
         Command::LoadUnit{transporter_id, passenger_id} => {
+            // TODO: проверь что это твой юнит, как и пассажир
             if state.units().get(&transporter_id).is_none() {
                 return Err(CommandError::BadTransporterId);
             }
@@ -610,6 +621,7 @@ pub fn check_command<S: GameState>(
             Ok(())
         },
         Command::UnloadUnit{transporter_id, passenger_id, pos} => {
+            // TODO: проверь что это твой юнит, как и пассажир
             if state.units().get(&transporter_id).is_none() {
                 return Err(CommandError::BadTransporterId);
             }
@@ -638,6 +650,7 @@ pub fn check_command<S: GameState>(
             Ok(())
         },
         Command::SetReactionFireMode{unit_id, ..} => {
+            // TODO: проверь что это твой юнит
             if state.units().get(&unit_id).is_none() {
                 Err(CommandError::BadUnitId)
             } else {
@@ -645,6 +658,7 @@ pub fn check_command<S: GameState>(
             }
         },
         Command::Smoke{unit_id, pos} => {
+            // TODO: проверь что это твой юнит
             let unit = match state.units().get(&unit_id) {
                 Some(unit) => unit,
                 None => return Err(CommandError::BadUnitId),
@@ -1134,7 +1148,12 @@ impl Core {
     }
 
     fn simulation_step(&mut self, command: Command) {
-        if let Err(err) = check_command(&self.db, &self.state, &command) {
+        if let Err(err) = check_command(
+            &self.db,
+            self.current_player_id,
+            &self.state,
+            &command,
+        ) {
             println!("Bad command: {:?}", err);
             return;
         }
@@ -1174,6 +1193,7 @@ impl Core {
                 });
             },
             Command::CreateUnit{pos, type_id} => {
+                // TODO: assert на количество очков подкрепления
                 let event = CoreEvent::CreateUnit {
                     unit_info: UnitInfo {
                         unit_id: self.get_new_unit_id(),

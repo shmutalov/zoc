@@ -10,6 +10,7 @@ pub trait GameState {
     fn objects(&self) -> &HashMap<ObjectId, Object>;
     fn sectors(&self) -> &HashMap<SectorId, Sector>;
     fn score(&self) -> &HashMap<PlayerId, Score>;
+    fn reinforcement_points(&self) -> &HashMap<PlayerId, i32>;
 
     fn unit(&self, id: UnitId) -> &Unit {
         &self.units()[&id]

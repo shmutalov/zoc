@@ -38,6 +38,7 @@ pub struct InternalState {
     map: Map<Terrain>,
     sectors: HashMap<SectorId, Sector>,
     score: HashMap<PlayerId, Score>,
+    reinforcement_points: HashMap<PlayerId, i32>, // TODO: i32 -> ???
 }
 
 impl InternalState {
@@ -94,12 +95,16 @@ impl InternalState {
         let mut score = HashMap::new();
         score.insert(PlayerId{id: 0}, Score{n: 0});
         score.insert(PlayerId{id: 1}, Score{n: 0});
+        let mut reinforcement_points = HashMap::new();
+        reinforcement_points.insert(PlayerId{id: 0}, 10);
+        reinforcement_points.insert(PlayerId{id: 1}, 10);
         let mut state = InternalState {
             units: HashMap::new(),
             objects: HashMap::new(),
             map: map,
             sectors: sectors,
             score: score,
+            reinforcement_points: reinforcement_points,
         };
         state.add_buildings(MapPos{v: Vector2{x: 5, y: 4}}, 2);
         state.add_buildings(MapPos{v: Vector2{x: 5, y: 5}}, 2);
@@ -227,6 +232,14 @@ impl InternalState {
     fn add_unit(&mut self, db: &Db, unit_info: &UnitInfo, info_level: InfoLevel) {
         assert!(self.units.get(&unit_info.unit_id).is_none());
         let unit_type = db.unit_type(unit_info.type_id);
+        // повторить проверку в `check_command`
+        let cost = unit_type.cost;
+        let reinforcement_points = self.reinforcement_points
+            .get_mut(&unit_info.player_id).unwrap();
+        if *reinforcement_points < cost {
+            return;
+        }
+        *reinforcement_points -= cost;
         self.units.insert(unit_info.unit_id, Unit {
             id: unit_info.unit_id,
             pos: unit_info.pos,
@@ -270,6 +283,10 @@ impl GameState for InternalState {
 
     fn score(&self) -> &HashMap<PlayerId, Score> {
         &self.score
+    }
+
+    fn reinforcement_points(&self) -> &HashMap<PlayerId, i32> {
+        &self.reinforcement_points
     }
 }
 
