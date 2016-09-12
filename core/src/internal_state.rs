@@ -273,6 +273,7 @@ impl InternalState {
             return;
         }
         *reinforcement_points -= cost;
+        println!("player {} now has {} RPs", unit_info.player_id.id, reinforcement_points); // TODO: GUI
         self.units.insert(unit_info.unit_id, Unit {
             id: unit_info.unit_id,
             pos: unit_info.pos,
@@ -344,8 +345,15 @@ impl GameStateMut for InternalState {
                 }
             },
             CoreEvent::EndTurn{new_id, old_id} => {
+                {
+                    let reinforcement_points = self.reinforcement_points
+                        .get_mut(&old_id).unwrap();
+                    *reinforcement_points += 10;
+                    println!("player {} now has {} RPs", old_id.id, reinforcement_points); // TODO: GUI
+                }
                 self.refresh_units(db, new_id);
                 self.convert_ap(db, old_id);
+                // TODO: ээээ, а таймер дважды (или сколько игроков) в ход дергается, так?
                 for (_, object) in &mut self.objects {
                     if let Some(ref mut timer) = object.timer {
                         *timer -= 1;
