@@ -37,7 +37,7 @@ use player_info::{PlayerInfoManager, PlayerInfo};
 
 fn opt_rx_collect<T>(rx: &Option<Receiver<T>>) -> Vec<T> {
     let mut context_menu_popup_commands = Vec::new();
-    if let &Some(ref rx) = rx {
+    if let Some(ref rx) = *rx {
         while let Ok(command) = rx.try_recv() {
             context_menu_popup_commands.push(command);
         }
@@ -445,7 +445,7 @@ impl TacticalScreen {
 
     fn show_reinforcements_menu(&mut self, context: &mut Context, pos: MapPos) {
         let options = reinforcements_popup::get_options(
-            &self.core.db(),
+            self.core.db(),
             self.current_state(),
             self.core.player_id(),
             pos,
