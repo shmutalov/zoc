@@ -402,7 +402,7 @@ pub struct TacticalScreen {
     selected_unit_id: Option<UnitId>,
     selection_manager: SelectionManager,
     context_menu_popup_rx: Option<Receiver<context_menu_popup::Command>>,
-    reinforcements_popup_rx: Option<Receiver<Option<(UnitTypeId, ExactPos)>>>,
+    reinforcements_popup_rx: Option<Receiver<(UnitTypeId, ExactPos)>>,
 }
 
 impl TacticalScreen {
@@ -1225,10 +1225,8 @@ impl TacticalScreen {
         for command in opt_rx_collect(&self.context_menu_popup_rx) {
             self.handle_context_menu_popup_command(context, command);
         }
-        for opt_unit_type_id in opt_rx_collect(&self.reinforcements_popup_rx) {
-            if let Some((id, pos)) = opt_unit_type_id {
-                self.handle_reinforce_command(id, pos);
-            }
+        for (type_id, pos) in opt_rx_collect(&self.reinforcements_popup_rx) {
+            self.handle_reinforce_command(type_id, pos);
         }
     }
 }

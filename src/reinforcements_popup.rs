@@ -14,10 +14,9 @@ use gui::{ButtonManager, Button, ButtonId, is_tap, basic_text_size};
 
 #[derive(Clone, Debug)]
 pub struct ReinforcementsPopup {
-    game_screen_tx: Sender<Option<(UnitTypeId, ExactPos)>>,
+    game_screen_tx: Sender<(UnitTypeId, ExactPos)>,
     button_manager: ButtonManager,
     button_ids: HashMap<ButtonId, (UnitTypeId, ExactPos)>,
-    map_pos: MapPos, // убрать, раз точные позиции храню
 }
 
 impl ReinforcementsPopup {
@@ -26,19 +25,18 @@ impl ReinforcementsPopup {
         player_id: PlayerId,
         state: &PartialState,
         context: &mut Context,
-        pos: ScreenPos,
+        screen_pos: ScreenPos,
         map_pos: MapPos,
-        tx: Sender<Option<(UnitTypeId, ExactPos)>>,
+        tx: Sender<(UnitTypeId, ExactPos)>,
     ) -> ReinforcementsPopup {
         let reinforcement_points = state.reinforcement_points()[&player_id];
         let mut button_manager = ButtonManager::new();
         let mut button_ids = HashMap::new();
-        let mut pos = pos;
+        let mut pos = screen_pos;
         let text_size = basic_text_size(context);
         pos.v.y -= text_size as i32;
         let vstep = (text_size * 0.8) as i32;
         for (i, unit_type) in db.unit_types().iter().enumerate() {
-            // TODO: проверять цену
             let unit_type_id = UnitTypeId{id: i as i32};
             let exact_pos = match get_free_exact_pos(
                 db,
@@ -63,7 +61,6 @@ impl ReinforcementsPopup {
             game_screen_tx: tx,
             button_manager: button_manager,
             button_ids: button_ids,
-            map_pos: map_pos,
         }
     }
 
@@ -83,8 +80,8 @@ impl ReinforcementsPopup {
         context: &mut Context,
         button_id: ButtonId
     ) {
-        if let Some(&unit_type_id) = self.button_ids.get(&button_id) {
-            self.game_screen_tx.send(Some(unit_type_id)).unwrap();
+        if let Some(&unit_info) = self.button_ids.get(&button_id) {
+            self.game_screen_tx.send(unit_info).unwrap();
             context.add_command(ScreenCommand::PopPopup);
             return;
         } else {

@@ -331,6 +331,10 @@ impl GameStateMut for InternalState {
                     let unit = self.units.get_mut(&unit_id).unwrap();
                     unit.pos = to;
                     assert!(unit.move_points.n > 0);
+                    // TODO: вот тут теперь иногда падает, потому что
+                    // у только что замеченных врагов вообще не изсвестно сколько
+                    // должно быть очков движения.
+                    // Надо на Option перевести
                     unit.move_points.n -= cost.n;
                     assert!(unit.move_points.n >= 0);
                 }
