@@ -15,7 +15,7 @@ pub struct Unit {
     pub pos: ExactPos,
     pub player_id: PlayerId,
     pub type_id: UnitTypeId,
-    pub move_points: MovePoints,
+    pub move_points: Option<MovePoints>,
     pub attack_points: AttackPoints,
     pub reactive_attack_points: Option<AttackPoints>,
     pub reaction_fire_mode: ReactionFireMode,

@@ -141,7 +141,8 @@ impl Ai {
                 None => continue,
             };
             let cost = path_cost(db, &self.state, unit, &path);
-            if unit.move_points.n < cost.n {
+            let move_points = unit.move_points.unwrap();
+            if move_points.n < cost.n {
                 continue;
             }
             return Some(Command::Move {

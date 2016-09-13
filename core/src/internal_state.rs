@@ -248,7 +248,9 @@ impl InternalState {
         for (_, unit) in &mut self.units {
             if unit.player_id == player_id {
                 let unit_type = db.unit_type(unit.type_id);
-                unit.move_points = unit_type.move_points;
+                if let Some(ref mut move_points) = unit.move_points {
+                    *move_points = unit_type.move_points;
+                }
                 unit.attack_points = unit_type.attack_points;
                 if let Some(ref mut reactive_attack_points) = unit.reactive_attack_points {
                     *reactive_attack_points = unit_type.reactive_attack_points;
@@ -279,7 +281,11 @@ impl InternalState {
             pos: unit_info.pos,
             player_id: unit_info.player_id,
             type_id: unit_info.type_id,
-            move_points: MovePoints{n: 0},
+            move_points: if info_level == InfoLevel::Full {
+                Some(MovePoints{n: 0})
+            } else {
+                None
+            },
             attack_points: AttackPoints{n: 0},
             reactive_attack_points: if info_level == InfoLevel::Full {
                 Some(AttackPoints{n: 0})
@@ -331,13 +337,11 @@ impl GameStateMut for InternalState {
                 {
                     let unit = self.units.get_mut(&unit_id).unwrap();
                     unit.pos = to;
-                    assert!(unit.move_points.n > 0);
-                    // TODO: вот тут теперь иногда падает, потому что
-                    // у только что замеченных врагов вообще не изсвестно сколько
-                    // должно быть очков движения.
-                    // Надо на Option перевести
-                    unit.move_points.n -= cost.n;
-                    assert!(unit.move_points.n >= 0);
+                    if let Some(ref mut move_points) = unit.move_points {
+                        assert!(move_points.n > 0);
+                        move_points.n -= cost.n;
+                        assert!(move_points.n >= 0);
+                    }
                 }
                 if let Some(passenger_id) = self.units[&unit_id].passenger_id {
                     let passenger = self.units.get_mut(&passenger_id).unwrap();
@@ -371,7 +375,9 @@ impl GameStateMut for InternalState {
                     unit.count -= attack_info.killed;
                     unit.morale -= attack_info.suppression;
                     if attack_info.remove_move_points {
-                        unit.move_points.n = 0;
+                        if let Some(ref mut move_points) = unit.move_points {
+                            move_points.n = 0;
+                        }
                     }
                 }
                 let count = self.units[&attack_info.defender_id].count;
@@ -418,7 +424,9 @@ impl GameStateMut for InternalState {
                 let passenger = self.units.get_mut(&passenger_id)
                     .expect("Bad passenger_id");
                 passenger.pos = to;
-                passenger.move_points.n = 0;
+                if let Some(ref mut move_points) = passenger.move_points {
+                    move_points.n = 0;
+                }
             },
             CoreEvent::UnloadUnit{transporter_id, ref unit_info, ..} => {
                 if let Some(transporter_id) = transporter_id {

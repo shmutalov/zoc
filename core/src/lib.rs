@@ -377,7 +377,11 @@ pub fn print_unit_info(db: &Db, unit: &Unit) {
     let weapon_type = db.weapon_type(unit_type.weapon_type_id);
     println!("unit:");
     println!("  player_id: {}", unit.player_id.id);
-    println!("  move_points: {}", unit.move_points.n);
+    if let Some(move_points) = unit.move_points {
+        println!("  move_points: {}", move_points.n);
+    } else {
+        println!("  move_points: ?");
+    }
     println!("  attack_points: {}", unit.attack_points.n);
     if let Some(reactive_attack_points) = unit.reactive_attack_points {
         println!("  reactive_attack_points: {}", reactive_attack_points.n);
@@ -574,7 +578,8 @@ pub fn check_command<S: GameState>(
             }
             let cost = path_cost(db, state, unit, path).n
                 * move_cost_modifier(mode);
-            if cost > unit.move_points.n {
+            let move_points = unit.move_points.unwrap();
+            if cost > move_points.n {
                 return Err(CommandError::NotEnoughMovePoints);
             }
             Ok(())
@@ -617,7 +622,8 @@ pub fn check_command<S: GameState>(
                 return Err(CommandError::TransporterIsTooFarAway);
             }
             // TODO: 0 -> real move cost of transport tile for passenger
-            if passenger.move_points.n == 0 {
+            let passenger_move_points = passenger.move_points.unwrap();
+            if passenger_move_points.n == 0 {
                 return Err(CommandError::PassengerHasNotEnoughMovePoints);
             }
             Ok(())
