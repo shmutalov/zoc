@@ -27,7 +27,7 @@ use misc::{clamp};
 use internal_state::{InternalState};
 use game_state::{GameState, GameStateMut};
 use partial_state::{PartialState};
-use map::{Terrain, distance};
+use map::{Map, Terrain, distance};
 use pathfinder::{path_cost, tile_cost};
 use unit::{Unit, UnitTypeId, UnitClass};
 use db::{Db};
@@ -733,9 +733,10 @@ impl Default for GameType {
     }
 }
 
-#[derive(Default, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct Options {
     pub game_type: GameType,
+    pub map_name: String,
 }
 
 #[derive(Clone, Debug)]
@@ -801,11 +802,24 @@ fn los<S: GameState>(
     v
 }
 
-pub fn get_free_slot_for_building<S: GameState>(
-    state: &S,
+pub fn objects_at(objects: &HashMap<ObjectId, Object>, pos: MapPos) -> Vec<&Object> {
+    let mut objects_at = Vec::new();
+    for object in objects.values() {
+        for map_pos in object.pos.map_pos_iter() {
+            if map_pos == pos {
+                objects_at.push(object);
+            }
+        }
+    }
+    objects_at
+}
+
+pub fn get_free_slot_for_building(
+    map: &Map<Terrain>,
+    objects: &HashMap<ObjectId, Object>,
     pos: MapPos,
 ) -> Option<SlotId> {
-    let objects_at = state.objects_at(pos);
+    let objects_at = objects_at(objects, pos);
     let mut slots = [false, false, false];
     for object in &objects_at {
         if let SlotId::Id(slot_id) = object.pos.slot_id {
@@ -814,7 +828,7 @@ pub fn get_free_slot_for_building<S: GameState>(
             return None;
         }
     }
-    let slots_count = get_slots_count(state, pos) as usize;
+    let slots_count = get_slots_count(map, pos) as usize;
     for (i, slot) in slots.iter().enumerate().take(slots_count) {
         if !slot {
             return Some(SlotId::Id(i as u8));
@@ -894,7 +908,7 @@ pub fn get_free_slot_id<S: GameState>(
             }
         }
     }
-    let slots_count = get_slots_count(state, pos) as usize;
+    let slots_count = get_slots_count(state.map(), pos) as usize;
     for (i, slot) in slots.iter().enumerate().take(slots_count) {
         if !slot {
             return Some(SlotId::Id(i as u8));
@@ -903,8 +917,8 @@ pub fn get_free_slot_id<S: GameState>(
     None
 }
 
-pub fn get_slots_count<S: GameState>(state: &S, pos: MapPos) -> i32 {
-    match *state.map().tile(pos) {
+pub fn get_slots_count(map: &Map<Terrain>, pos: MapPos) -> i32 {
+    match *map.tile(pos) {
         Terrain::Water => 1,
         Terrain::City |
         Terrain::Plain |
@@ -940,13 +954,14 @@ pub fn is_exact_pos_free<S: GameState>(
 
 impl Core {
     pub fn new(options: &Options) -> Core {
-        let map_size = Size2{w: 10, h: 12}; // TODO: read from config file
+        let state = InternalState::new(&options.map_name);
+        let map_size = state.map().size();
         Core {
-            state: InternalState::new(map_size),
+            state: state,
             players: get_players_list(options.game_type),
             current_player_id: PlayerId{id: 0},
             db: Db::new(),
-            ai: Ai::new(PlayerId{id:1}, map_size),
+            ai: Ai::new(PlayerId{id:1}, &options.map_name),
             players_info: get_player_info_lists(map_size),
         }
     }
