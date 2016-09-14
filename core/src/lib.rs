@@ -1220,7 +1220,6 @@ impl Core {
                 });
             },
             Command::CreateUnit{pos, type_id} => {
-                // TODO: assert на количество очков подкрепления
                 let event = CoreEvent::CreateUnit {
                     unit_info: UnitInfo {
                         unit_id: self.get_new_unit_id(),

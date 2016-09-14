@@ -63,6 +63,13 @@ fn score_text(state: &PartialState) -> String {
     )
 }
 
+// В частичном состоянии не должно быть занния о кол-ве очков подкрепления у врага!
+fn reinforcement_points_text(state: &PartialState) -> String {
+    let rp = state.reinforcement_points()[&PlayerId{id: 0}];
+    // TODO: get rid of magic num
+    format!("RP:{}(+10)", rp)
+}
+
 fn load_object_mesh(context: &mut Context, name: &str) -> Mesh {
     let model = obj::Model::new(&format!("{}.obj", name));
     let (vertices, indices) = obj::build(&model);
@@ -226,6 +233,7 @@ pub struct Gui {
     button_zoom_out_id: ButtonId,
     label_unit_info_id: Option<ButtonId>,
     label_score_id: ButtonId,
+    label_reinforcement_points_id: ButtonId,
 }
 
 impl Gui {
@@ -264,6 +272,18 @@ impl Gui {
             label_score.set_pos(pos);
             button_manager.add_button(label_score)
         };
+        let label_reinforcement_points_id = {
+            let vp_pos = ScreenPos{v: Vector2 {
+                x: context.win_size.w - 10,
+                y: 10,
+            }};
+            let text = reinforcement_points_text(state);
+            let mut button = Button::new_small(context, &text, vp_pos);
+            let mut pos = button.pos();
+            pos.v.x -= button.size().w;
+            button.set_pos(pos);
+            button_manager.add_button(button)
+        };
         Gui {
             button_manager: button_manager,
             button_end_turn_id: button_end_turn_id,
@@ -274,6 +294,7 @@ impl Gui {
             button_zoom_out_id: button_zoom_out_id,
             label_unit_info_id: None,
             label_score_id: label_score_id,
+            label_reinforcement_points_id: label_reinforcement_points_id,
         }
     }
 }
@@ -338,7 +359,7 @@ fn make_scene(state: &PartialState, mesh_ids: &MeshIdManager) -> Scene {
                 pos.v.z += 0.03; // TODO: layers
                 let mut color = match object.owner_id {
                     Some(player_id) => {
-                        event_visualizer::get_player_color(player_id)
+                        gen::get_player_color(player_id)
                     },
                     None => [1.0, 1.0, 1.0, 1.0],
                 };
@@ -1062,6 +1083,15 @@ impl TacticalScreen {
         self.gui.label_score_id = self.gui.button_manager.add_button(label_score);
     }
 
+    fn update_reinforcement_points_label(&mut self, context: &mut Context) {
+        let id = self.gui.label_reinforcement_points_id;
+        let pos = self.gui.button_manager.buttons()[&id].pos();
+        let text = reinforcement_points_text(self.current_state());
+        let label = Button::new_small(context, &text, pos);
+        self.gui.button_manager.remove_button(id);
+        self.gui.label_reinforcement_points_id = self.gui.button_manager.add_button(label);
+    }
+
     // TODO: simplify
     fn switch_wireframe(&mut self) {
         let player_info = self.player_info.get_mut(self.core.player_id());
@@ -1121,6 +1151,7 @@ impl TacticalScreen {
         if let Some(label_id) = self.gui.label_unit_info_id.take() {
             self.gui.button_manager.remove_button(label_id);
         }
+        self.update_reinforcement_points_label(context);
         if let Some(CoreEvent::VictoryPoint{..}) = self.event {
             self.update_score_labels(context);
             self.check_game_end(context);

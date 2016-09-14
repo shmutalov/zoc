@@ -188,7 +188,6 @@ impl GameStateMut for InternalState {
                     let reinforcement_points = self.reinforcement_points
                         .get_mut(&old_id).unwrap();
                     *reinforcement_points += 10;
-                    println!("player {} now has {} RPs", old_id.id, reinforcement_points); // TODO: GUI
                 }
                 self.refresh_units(db, new_id);
                 self.convert_ap(db, old_id);

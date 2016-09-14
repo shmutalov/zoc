@@ -51,7 +51,7 @@ pub fn get_options(
     }
     options
 }
- 
+
 #[derive(Clone, Debug)]
 pub struct ReinforcementsPopup {
     game_screen_tx: Sender<(UnitTypeId, ExactPos)>,
