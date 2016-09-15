@@ -102,7 +102,6 @@ impl InternalState {
     fn add_unit(&mut self, db: &Db, unit_info: &UnitInfo, info_level: InfoLevel) {
         assert!(self.units.get(&unit_info.unit_id).is_none());
         let unit_type = db.unit_type(unit_info.type_id);
-        // повторить проверку в `check_command`
         let cost = unit_type.cost;
         let reinforcement_points = self.reinforcement_points
             .get_mut(&unit_info.player_id).unwrap();
@@ -110,7 +109,6 @@ impl InternalState {
             return;
         }
         *reinforcement_points -= cost;
-        println!("player {} now has {} RPs", unit_info.player_id.id, reinforcement_points); // TODO: GUI
         self.units.insert(unit_info.unit_id, Unit {
             id: unit_info.unit_id,
             pos: unit_info.pos,
