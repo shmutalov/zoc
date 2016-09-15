@@ -64,10 +64,10 @@ fn score_text(state: &PartialState) -> String {
 }
 
 // В частичном состоянии не должно быть занния о кол-ве очков подкрепления у врага!
-fn reinforcement_points_text(state: &PartialState) -> String {
-    let rp = state.reinforcement_points()[&PlayerId{id: 0}];
-    // TODO: get rid of magic num
-    format!("RP:{}(+10)", rp)
+fn reinforcement_points_text(state: &PartialState, player_id: PlayerId) -> String {
+    let rp = state.reinforcement_points()[&player_id];
+    let rp_per_turn = 10; // TODO: magic num
+    format!("reinforcements: {} (+{})", rp, rp_per_turn)
 }
 
 fn load_object_mesh(context: &mut Context, name: &str) -> Mesh {
@@ -277,7 +277,7 @@ impl Gui {
                 x: context.win_size.w - 10,
                 y: 10,
             }};
-            let text = reinforcement_points_text(state);
+            let text = reinforcement_points_text(state, PlayerId{id: 0}); // TODO: magic lalal
             let mut button = Button::new_small(context, &text, vp_pos);
             let mut pos = button.pos();
             pos.v.x -= button.size().w;
@@ -1086,7 +1086,7 @@ impl TacticalScreen {
     fn update_reinforcement_points_label(&mut self, context: &mut Context) {
         let id = self.gui.label_reinforcement_points_id;
         let pos = self.gui.button_manager.buttons()[&id].pos();
-        let text = reinforcement_points_text(self.current_state());
+        let text = reinforcement_points_text(self.current_state(), self.core.player_id());
         let label = Button::new_small(context, &text, pos);
         self.gui.button_manager.remove_button(id);
         self.gui.label_reinforcement_points_id = self.gui.button_manager.add_button(label);
