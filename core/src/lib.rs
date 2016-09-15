@@ -496,7 +496,7 @@ impl std::error::Error for CommandError {
     }
 }
 
-// TODO: вынести всю `check_` фиговину в src/core/check.rs
+// TODO: move all `check_*` funcs to src/core/check.rs
 fn check_attack<S: GameState>(
     db: &Db,
     state: &S,
