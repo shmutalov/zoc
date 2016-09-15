@@ -63,7 +63,6 @@ fn score_text(state: &PartialState) -> String {
     )
 }
 
-// В частичном состоянии не должно быть занния о кол-ве очков подкрепления у врага!
 fn reinforcement_points_text(state: &PartialState, player_id: PlayerId) -> String {
     let rp = state.reinforcement_points()[&player_id];
     let rp_per_turn = 10; // TODO: magic num
