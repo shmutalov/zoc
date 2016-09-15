@@ -189,7 +189,7 @@ impl GameStateMut for InternalState {
                 }
                 self.refresh_units(db, new_id);
                 self.convert_ap(db, old_id);
-                // TODO: ээээ, а таймер дважды (или сколько игроков) в ход дергается, так?
+                // TODO: timer ticks on every player's turn! O.o
                 for (_, object) in &mut self.objects {
                     if let Some(ref mut timer) = object.timer {
                         *timer -= 1;

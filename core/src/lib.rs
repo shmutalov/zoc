@@ -640,7 +640,6 @@ pub fn check_command<S: GameState>(
             Ok(())
         },
         Command::UnloadUnit{transporter_id, passenger_id, pos} => {
-            // TODO: проверь что это твой юнит, как и пассажир
             if state.units().get(&transporter_id).is_none() {
                 return Err(CommandError::BadTransporterId);
             }
