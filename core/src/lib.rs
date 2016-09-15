@@ -426,6 +426,7 @@ pub fn print_terrain_info<S: GameState>(state: &S, pos: MapPos) {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CommandError {
     TileIsOccupied,
+    CanNotCommandEnemyUnits,
     NotEnoughMovePoints,
     NotEnoughAttackPoints,
     NotEnoughReactiveAttackPoints,
@@ -455,6 +456,7 @@ impl CommandError {
     fn to_str(&self) -> &str {
         match *self {
             CommandError::TileIsOccupied => "Tile is occupied",
+            CommandError::CanNotCommandEnemyUnits => "Can not command enemy units",
             CommandError::NotEnoughMovePoints => "Not enough move points",
             CommandError::NotEnoughAttackPoints => "No attack points",
             CommandError::NotEnoughReactiveAttackPoints => "No reactive attack points",
@@ -562,14 +564,16 @@ pub fn check_command<S: GameState>(
             Ok(())
         },
         Command::Move{unit_id, ref path, mode} => {
-            // TODO: проверь что это твой юнит
+            let unit = state.unit(unit_id);
+            if unit.player_id != player_id {
+                return Err(CommandError::CanNotCommandEnemyUnits);
+            }
             if path.len() < 2 {
                 return Err(CommandError::BadPath);
             }
             if state.units().get(&unit_id).is_none() {
                 return Err(CommandError::BadUnitId);
             }
-            let unit = state.unit(unit_id);
             for window in path.windows(2) {
                 let pos = window[1];
                 if !is_exact_pos_free(db, state, unit.type_id, pos) {
@@ -585,7 +589,6 @@ pub fn check_command<S: GameState>(
             Ok(())
         },
         Command::AttackUnit{attacker_id, defender_id} => {
-            // TODO: проверь что это твой юнит
             if state.units().get(&attacker_id).is_none() {
                 return Err(CommandError::BadAttackerId);
             }
@@ -593,11 +596,13 @@ pub fn check_command<S: GameState>(
                 return Err(CommandError::BadDefenderId);
             }
             let attacker = state.unit(attacker_id);
+            if attacker.player_id != player_id {
+                return Err(CommandError::CanNotCommandEnemyUnits);
+            }
             let defender = state.unit(defender_id);
             check_attack(db, state, attacker, defender, FireMode::Active)
         },
         Command::LoadUnit{transporter_id, passenger_id} => {
-            // TODO: проверь что это твой юнит, как и пассажир
             if state.units().get(&transporter_id).is_none() {
                 return Err(CommandError::BadTransporterId);
             }
@@ -606,6 +611,12 @@ pub fn check_command<S: GameState>(
             }
             let passenger = state.unit(passenger_id);
             let transporter = state.unit(transporter_id);
+            if passenger.player_id != player_id {
+                return Err(CommandError::CanNotCommandEnemyUnits);
+            }
+            if transporter.player_id != player_id {
+                return Err(CommandError::CanNotCommandEnemyUnits);
+            }
             if !db.unit_type(transporter.type_id).is_transporter {
                 return Err(CommandError::BadTransporterClass);
             }
@@ -638,6 +649,12 @@ pub fn check_command<S: GameState>(
                 None => return Err(CommandError::BadPassengerId),
             };
             let transporter = state.unit(transporter_id);
+            if passenger.player_id != player_id {
+                return Err(CommandError::CanNotCommandEnemyUnits);
+            }
+            if transporter.player_id != player_id {
+                return Err(CommandError::CanNotCommandEnemyUnits);
+            }
             if !db.unit_type(transporter.type_id).is_transporter {
                 return Err(CommandError::BadTransporterClass);
             }
@@ -658,19 +675,23 @@ pub fn check_command<S: GameState>(
             Ok(())
         },
         Command::SetReactionFireMode{unit_id, ..} => {
-            // TODO: проверь что это твой юнит
-            if state.units().get(&unit_id).is_none() {
-                Err(CommandError::BadUnitId)
-            } else {
-                Ok(())
-            }
-        },
-        Command::Smoke{unit_id, pos} => {
-            // TODO: проверь что это твой юнит
             let unit = match state.units().get(&unit_id) {
                 Some(unit) => unit,
                 None => return Err(CommandError::BadUnitId),
             };
+            if unit.player_id != player_id {
+                return Err(CommandError::CanNotCommandEnemyUnits);
+            }
+            Ok(())
+        },
+        Command::Smoke{unit_id, pos} => {
+            let unit = match state.units().get(&unit_id) {
+                Some(unit) => unit,
+                None => return Err(CommandError::BadUnitId),
+            };
+            if unit.player_id != player_id {
+                return Err(CommandError::CanNotCommandEnemyUnits);
+            }
             let unit_type = db.unit_type(unit.type_id);
             let weapon_type = db.weapon_type(unit_type.weapon_type_id);
             if !weapon_type.smoke.is_some() {
