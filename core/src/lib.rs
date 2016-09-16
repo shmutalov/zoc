@@ -427,6 +427,7 @@ pub fn print_terrain_info<S: GameState>(state: &S, pos: MapPos) {
 pub enum CommandError {
     TileIsOccupied,
     CanNotCommandEnemyUnits,
+    NotInReinforcementSector,
     NotEnoughMovePoints,
     NotEnoughAttackPoints,
     NotEnoughReactiveAttackPoints,
@@ -457,6 +458,7 @@ impl CommandError {
         match *self {
             CommandError::TileIsOccupied => "Tile is occupied",
             CommandError::CanNotCommandEnemyUnits => "Can not command enemy units",
+            CommandError::NotInReinforcementSector => "Not in reinforcement sector",
             CommandError::NotEnoughMovePoints => "Not enough move points",
             CommandError::NotEnoughAttackPoints => "No attack points",
             CommandError::NotEnoughReactiveAttackPoints => "No reactive attack points",
@@ -553,12 +555,16 @@ pub fn check_command<S: GameState>(
     match *command {
         Command::EndTurn => Ok(()),
         Command::CreateUnit{pos, type_id} => {
-            // TODO: дурак, ты забыл проверку что это происходит в секторе подкреплений!
-            // for object in state.objects_at(pos) {
-            //     if object.class != ObjectClass::ReinforcementSector {
-            //         // ...
-            //     }
-            // }
+            let mut is_sector = false;
+            for object in state.objects_at(pos.map_pos) {
+                if object.class == ObjectClass::ReinforcementSector {
+                    is_sector = true;
+                    break;
+                }
+            }
+            if !is_sector {
+                return Err(CommandError::NotInReinforcementSector);
+            }
             let unit_type = db.unit_type(type_id);
             let reinforcement_points = state.reinforcement_points()[&player_id];
             if unit_type.cost > reinforcement_points {

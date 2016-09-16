@@ -16,7 +16,7 @@ pub struct Unit {
     pub player_id: PlayerId,
     pub type_id: UnitTypeId,
     pub move_points: Option<MovePoints>,
-    pub attack_points: AttackPoints,
+    pub attack_points: AttackPoints, // TODO: make optional
     pub reactive_attack_points: Option<AttackPoints>,
     pub reaction_fire_mode: ReactionFireMode,
     pub count: i32,
