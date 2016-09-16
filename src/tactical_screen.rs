@@ -654,7 +654,7 @@ impl TacticalScreen {
                 format!("MP={}/{}, AP={}/{}, RAP={}/{}, C={}, M={}",
                     if let Some(mp) = unit.move_points { mp.n } else { 0 },
                     unit_type.move_points.n,
-                    unit.attack_points.n,
+                    if let Some(ap) = unit.attack_points { ap.n } else { 0 },
                     unit_type.attack_points.n,
                     if let Some(rap) = unit.reactive_attack_points { rap.n } else { 0 },
                     unit_type.reactive_attack_points.n,

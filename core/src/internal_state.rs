@@ -73,9 +73,11 @@ impl InternalState {
             if let Some(ref mut reactive_attack_points)
                 = unit.reactive_attack_points
             {
-                reactive_attack_points.n += unit.attack_points.n;
+                reactive_attack_points.n += unit.attack_points.unwrap().n;
             }
-            unit.attack_points.n = 0;
+            if let Some(ref mut attack_points) = unit.attack_points {
+                attack_points.n = 0;
+            }
         }
     }
 
@@ -86,7 +88,9 @@ impl InternalState {
                 if let Some(ref mut move_points) = unit.move_points {
                     *move_points = unit_type.move_points;
                 }
-                unit.attack_points = unit_type.attack_points;
+                if let Some(ref mut attack_points) = unit.attack_points {
+                    *attack_points = unit_type.attack_points;
+                }
                 if let Some(ref mut reactive_attack_points) = unit.reactive_attack_points {
                     *reactive_attack_points = unit_type.reactive_attack_points;
                 }
@@ -119,7 +123,11 @@ impl InternalState {
             } else {
                 None
             },
-            attack_points: AttackPoints{n: 0},
+            attack_points: if info_level == InfoLevel::Full {
+                Some(AttackPoints{n: 0})
+            } else {
+                None
+            },
             reactive_attack_points: if info_level == InfoLevel::Full {
                 Some(AttackPoints{n: 0})
             } else {
@@ -225,8 +233,10 @@ impl GameStateMut for InternalState {
                 if let Some(unit) = self.units.get_mut(&attacker_id) {
                     match attack_info.mode {
                         FireMode::Active => {
-                            assert!(unit.attack_points.n >= 1);
-                            unit.attack_points.n -= 1;
+                            if let Some(ref mut attack_points) = unit.attack_points {
+                                assert!(attack_points.n >= 1);
+                                attack_points.n -= 1;
+                            }
                         },
                         FireMode::Reactive => {
                             if let Some(ref mut reactive_attack_points)
@@ -287,7 +297,9 @@ impl GameStateMut for InternalState {
             CoreEvent::Smoke{pos, id, unit_id} => {
                 if let Some(unit_id) = unit_id {
                     if let Some(unit) = self.units.get_mut(&unit_id) {
-                        unit.attack_points.n = 0;
+                        if let Some(ref mut attack_points) = unit.attack_points {
+                            attack_points.n = 0;
+                        }
                     }
                 }
                 // TODO: if there is already smoke in tile then just restart its timer

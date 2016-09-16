@@ -382,7 +382,11 @@ pub fn print_unit_info(db: &Db, unit: &Unit) {
     } else {
         println!("  move_points: ?");
     }
-    println!("  attack_points: {}", unit.attack_points.n);
+    if let Some(attack_points) = unit.attack_points {
+        println!("  attack_points: {}", attack_points.n);
+    } else {
+        println!("  attack_points: ?");
+    }
     if let Some(reactive_attack_points) = unit.reactive_attack_points {
         println!("  reactive_attack_points: {}", reactive_attack_points.n);
     } else {
@@ -506,9 +510,10 @@ fn check_attack<S: GameState>(
     defender: &Unit,
     fire_mode: FireMode,
 ) -> Result<(), CommandError> {
+    let attack_points = attacker.attack_points.unwrap();
     let reactive_attack_points = attacker.reactive_attack_points.unwrap();
     match fire_mode {
-        FireMode::Active => if attacker.attack_points.n <= 0 {
+        FireMode::Active => if attack_points.n <= 0 {
             return Err(CommandError::NotEnoughAttackPoints);
         },
         FireMode::Reactive => if reactive_attack_points.n <= 0 {
@@ -711,7 +716,8 @@ pub fn check_command<S: GameState>(
             if distance(unit.pos.map_pos, pos) > weapon_type.max_distance {
                 return Err(CommandError::OutOfRange);
             }
-            if unit.attack_points.n != unit_type.attack_points.n {
+            let attack_points = unit.attack_points.unwrap();
+            if attack_points.n != unit_type.attack_points.n {
                 return Err(CommandError::NotEnoughAttackPoints);
             }
             Ok(())

@@ -102,7 +102,7 @@ impl Ai {
             if unit.player_id != self.id {
                 continue;
             }
-            if unit.attack_points.n <= 0 {
+            if unit.attack_points.unwrap().n <= 0 {
                 continue;
             }
             for target in self.state.units().values() {
@@ -158,7 +158,7 @@ impl Ai {
             }
             return Some(command);
         }
-        // TODO: если врагов не видно, то попробовать доехать к незанятому сектору
+        // TODO: if there are no visible enemies then try to capture some sector
         None
     }
 
