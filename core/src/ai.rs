@@ -3,8 +3,9 @@ use partial_state::{PartialState};
 use map::{distance};
 use pathfinder::{self, Pathfinder, path_cost, truncate_path};
 use dir::{Dir};
-use unit::{Unit};
+use unit::{Unit, UnitTypeId};
 use db::{Db};
+use misc::{get_shuffled_indices};
 use ::{
     CoreEvent,
     Command,
@@ -152,49 +153,52 @@ impl Ai {
                 path: path,
                 mode: MoveMode::Fast,
             };
-            if check_command(db, self.id, &self.state, &command).is_ok() {
-                return Some(command);
+            if check_command(db, self.id, &self.state, &command).is_err() {
+                continue;
             }
+            return Some(command);
         }
-        // если врагов не видно, то попробовать доехать к незанятому сектору
+        // TODO: если врагов не видно, то попробовать доехать к незанятому сектору
         None
     }
 
     pub fn try_get_create_unit_command(&self, db: &Db) -> Option<Command> {
-        // - для каждого типа юнитов в случайном порядке
-        //     - проверить, хватит ли очков
-        //     - для каждой зоны вызова в случайном порядке
-        //         - если тут есть ли метро
-        //             - венуть команду
         let reinforcement_points = self.state.reinforcement_points()[&self.id];
-        let unit_type_id = db.unit_type_id("smg");
-        let unit_type = db.unit_type(unit_type_id);
-        if unit_type.cost > reinforcement_points {
-            return None;
-        }
-        for object in self.state.objects().values() {
-            let owner_id = match object.owner_id {
-                Some(id) => id,
-                None => continue,
-            };
-            if owner_id != self.id {
+        for type_index in get_shuffled_indices(db.unit_types()) {
+            let unit_type_id = UnitTypeId{id: type_index as i32};
+            let unit_type = db.unit_type(unit_type_id);
+            if unit_type.cost > reinforcement_points {
                 continue;
             }
-            if object.class != ObjectClass::ReinforcementSector {
-                continue;
+            for object in self.state.objects().values() {
+                let owner_id = match object.owner_id {
+                    Some(id) => id,
+                    None => continue,
+                };
+                if owner_id != self.id {
+                    continue;
+                }
+                if object.class != ObjectClass::ReinforcementSector {
+                    continue;
+                }
+                let exact_pos = match get_free_exact_pos(
+                    db,
+                    &self.state,
+                    unit_type_id,
+                    object.pos.map_pos,
+                ) {
+                    Some(pos) => pos,
+                    None => continue,
+                };
+                let command = Command::CreateUnit {
+                    type_id: unit_type_id,
+                    pos: exact_pos,
+                };
+                if check_command(db, self.id, &self.state, &command).is_err() {
+                    continue;
+                }
+                return Some(command);
             }
-            let exact_pos = match get_free_exact_pos(db, &self.state, unit_type_id, object.pos.map_pos) {
-                Some(pos) => pos,
-                None => continue,
-            };
-            let command = Command::CreateUnit {
-                type_id: unit_type_id,
-                pos: exact_pos,
-            };
-            if !check_command(db, self.id, &self.state, &command).is_ok() {
-                continue;
-            }
-            return Some(command);
         }
         None
     }
