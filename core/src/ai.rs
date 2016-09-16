@@ -11,6 +11,7 @@ use ::{
     MoveMode,
     PlayerId,
     ExactPos,
+    ObjectClass,
     check_command,
     get_free_exact_pos,
 };
@@ -146,11 +147,54 @@ impl Ai {
             if move_points.n < cost.n {
                 continue;
             }
-            return Some(Command::Move {
+            let command = Command::Move {
                 unit_id: unit.id,
                 path: path,
                 mode: MoveMode::Fast,
-            });
+            };
+            if check_command(db, self.id, &self.state, &command).is_ok() {
+                return Some(command);
+            }
+        }
+        // если врагов не видно, то попробовать доехать к незанятому сектору
+        None
+    }
+
+    pub fn try_get_create_unit_command(&self, db: &Db) -> Option<Command> {
+        // - для каждого типа юнитов в случайном порядке
+        //     - проверить, хватит ли очков
+        //     - для каждой зоны вызова в случайном порядке
+        //         - если тут есть ли метро
+        //             - венуть команду
+        let reinforcement_points = self.state.reinforcement_points()[&self.id];
+        let unit_type_id = db.unit_type_id("smg");
+        let unit_type = db.unit_type(unit_type_id);
+        if unit_type.cost > reinforcement_points {
+            return None;
+        }
+        for object in self.state.objects().values() {
+            let owner_id = match object.owner_id {
+                Some(id) => id,
+                None => continue,
+            };
+            if owner_id != self.id {
+                continue;
+            }
+            if object.class != ObjectClass::ReinforcementSector {
+                continue;
+            }
+            let exact_pos = match get_free_exact_pos(db, &self.state, unit_type_id, object.pos.map_pos) {
+                Some(pos) => pos,
+                None => continue,
+            };
+            let command = Command::CreateUnit {
+                type_id: unit_type_id,
+                pos: exact_pos,
+            };
+            if !check_command(db, self.id, &self.state, &command).is_ok() {
+                continue;
+            }
+            return Some(command);
         }
         None
     }
@@ -159,6 +203,8 @@ impl Ai {
         if let Some(cmd) = self.try_get_attack_command(db) {
             cmd
         } else if let Some(cmd) = self.try_get_move_command(db) {
+            cmd
+        } else if let Some(cmd) = self.try_get_create_unit_command(db) {
             cmd
         } else {
             Command::EndTurn

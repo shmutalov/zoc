@@ -553,6 +553,12 @@ pub fn check_command<S: GameState>(
     match *command {
         Command::EndTurn => Ok(()),
         Command::CreateUnit{pos, type_id} => {
+            // TODO: дурак, ты забыл проверку что это происходит в секторе подкреплений!
+            // for object in state.objects_at(pos) {
+            //     if object.class != ObjectClass::ReinforcementSector {
+            //         // ...
+            //     }
+            // }
             let unit_type = db.unit_type(type_id);
             let reinforcement_points = state.reinforcement_points()[&player_id];
             if unit_type.cost > reinforcement_points {
